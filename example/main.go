@@ -1,4 +1,4 @@
-//go:generate statik -src=./public -include=*.jpg,*.txt,*.html,*.css,*.js
+//go:generate statik -src=./public,./assets -include=*.jpg,*.txt,*.html,*.css,*.js
 
 package main
 
@@ -6,8 +6,8 @@ import (
 	"log"
 	"net/http"
 
-	_ "github.com/rakyll/statik/example/statik"
-	"github.com/rakyll/statik/fs"
+	_ "github.com/dmcneil/statik/example/statik"
+	"github.com/dmcneil/statik/fs"
 )
 
 // Before buildling, run go generate.

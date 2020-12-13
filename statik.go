@@ -31,7 +31,7 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/rakyll/statik/fs"
+	"github.com/dmcneil/statik/fs"
 )
 
 const nameSourceFile = "statik.go"
@@ -79,8 +79,7 @@ if there is already an existing package.
 Generates a statik package only with the ".js" files
 from the ./public directory.
 
-   $ statik -include=*.js
-`
+   $ statik -include=*.js`
 
 // mtimeDate holds the arbitrary mtime that we assign to files when
 // flagNoMtime is set.
@@ -199,56 +198,60 @@ func generateSource(srcPath string, includes string) (file *os.File, err error) 
 	defer f.Close()
 
 	w := zip.NewWriter(zipWriter)
-	if err = filepath.Walk(srcPath, func(path string, fi os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		// Ignore directories and hidden files.
-		// No entry is needed for directories in a zip file.
-		// Each file is represented with a path, no directory
-		// entities are required to build the hierarchy.
-		if fi.IsDir() || strings.HasPrefix(fi.Name(), ".") {
-			return nil
-		}
-		relPath, err := filepath.Rel(srcPath, path)
-		if err != nil {
-			return err
-		}
-		b, err := ioutil.ReadFile(path)
-		if err != nil {
-			return err
-		}
 
-		incs := strings.Split(includes, ",")
+	srcs := strings.Split(srcPath, ",")
+	for _, src := range srcs {
+		if err = filepath.Walk(src, func(path string, fi os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			// Ignore directories and hidden files.
+			// No entry is needed for directories in a zip file.
+			// Each file is represented with a path, no directory
+			// entities are required to build the hierarchy.
+			if fi.IsDir() || strings.HasPrefix(fi.Name(), ".") {
+				return nil
+			}
+			relPath, err := filepath.Rel(src, path)
+			if err != nil {
+				return err
+			}
+			b, err := ioutil.ReadFile(path)
+			if err != nil {
+				return err
+			}
 
-		if b, e := match(incs, path); e != nil {
-			return err
-		} else if !b {
-			return nil
-		}
+			incs := strings.Split(includes, ",")
 
-		fHeader, err := zip.FileInfoHeader(fi)
-		if err != nil {
+			if b, e := match(incs, path); e != nil {
+				return err
+			} else if !b {
+				return nil
+			}
+
+			fHeader, err := zip.FileInfoHeader(fi)
+			if err != nil {
+				return err
+			}
+			if *flagNoMtime {
+				// Always use the same modification time so that
+				// the output is deterministic with respect to the file contents.
+				// Do NOT use fHeader.Modified as it only works on go >= 1.10
+				fHeader.Modified = mtimeDate
+			}
+			fHeader.Name = filepath.ToSlash(relPath)
+			if !*flagNoCompress {
+				fHeader.Method = zip.Deflate
+			}
+			f, err := w.CreateHeader(fHeader)
+			if err != nil {
+				return err
+			}
+			_, err = f.Write(b)
 			return err
+		}); err != nil {
+			return
 		}
-		if *flagNoMtime {
-			// Always use the same modification time so that
-			// the output is deterministic with respect to the file contents.
-			// Do NOT use fHeader.Modified as it only works on go >= 1.10
-			fHeader.SetModTime(mtimeDate)
-		}
-		fHeader.Name = filepath.ToSlash(relPath)
-		if !*flagNoCompress {
-			fHeader.Method = zip.Deflate
-		}
-		f, err := w.CreateHeader(fHeader)
-		if err != nil {
-			return err
-		}
-		_, err = f.Write(b)
-		return err
-	}); err != nil {
-		return
 	}
 	if err = w.Close(); err != nil {
 		return
@@ -277,7 +280,7 @@ func generateSource(srcPath string, includes string) (file *os.File, err error) 
 package %s
 
 import (
-	"github.com/rakyll/statik/fs"
+	"github.com/dmcneil/statik/fs"
 )
 
 `, tags, comment, namePackage)
