@@ -41,6 +41,7 @@ var namePackage string
 var (
 	flagSrc        = flag.String("src", path.Join(".", "public"), "")
 	flagDest       = flag.String("dest", ".", "")
+	flagRel        = flag.Bool("rel", true, "")
 	flagNoMtime    = flag.Bool("m", false, "")
 	flagNoCompress = flag.Bool("Z", false, "")
 	flagForce      = flag.Bool("f", false, "")
@@ -57,6 +58,7 @@ Options:
 -src     The source directory of the assets, "public" by default.
 -dest    The destination directory of the generated package, "." by default.
 
+-rel	 File paths should be relative to their "src", true by default.
 -ns      The namespace where assets will exist, "default" by default.
 -f       Override destination if it already exists, false by default.
 -include Wildcard to filter files to include, "*.*" by default.
@@ -212,9 +214,13 @@ func generateSource(srcPath string, includes string) (file *os.File, err error) 
 			if fi.IsDir() || strings.HasPrefix(fi.Name(), ".") {
 				return nil
 			}
-			relPath, err := filepath.Rel(src, path)
-			if err != nil {
-				return err
+
+			filename := path
+			if *flagRel {
+				filename, err = filepath.Rel(src, path)
+				if err != nil {
+					return err
+				}
 			}
 			b, err := ioutil.ReadFile(path)
 			if err != nil {
@@ -236,10 +242,9 @@ func generateSource(srcPath string, includes string) (file *os.File, err error) 
 			if *flagNoMtime {
 				// Always use the same modification time so that
 				// the output is deterministic with respect to the file contents.
-				// Do NOT use fHeader.Modified as it only works on go >= 1.10
 				fHeader.Modified = mtimeDate
 			}
-			fHeader.Name = filepath.ToSlash(relPath)
+			fHeader.Name = filepath.ToSlash(filename)
 			if !*flagNoCompress {
 				fHeader.Method = zip.Deflate
 			}
